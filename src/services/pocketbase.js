@@ -1,6 +1,5 @@
 import PocketBase from 'pocketbase';
 import { useNotificationStore } from '@/stores/notification';
-import { useAuthStore } from '@/stores/auth';
 
 const db = new PocketBase('http://localhost:8090');
 

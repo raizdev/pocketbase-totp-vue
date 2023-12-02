@@ -1,10 +1,11 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import { useNotificationStore } from "@/stores/notification";
 
 import HomeView from "@/views/HomeView.vue";
 import Registration from "@/views/Registration.vue";
 import Signin from "@/views/Signin.vue";
+import Add from "@/views/Authenticator/Add.vue";
+import Remove from "@/views/Authenticator/Remove.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -17,8 +18,8 @@ const router = createRouter({
     {
       path: "/authenticator",
       children: [
-        { path: "add", component: () => import("../views/Authenticator/Add.vue") },
-        { path: "remove", component: () => import("../views/Authenticator/Remove.vue") },
+        { path: "add", component: Add },
+        { path: "remove", component: Remove },
       ]
     },
     {

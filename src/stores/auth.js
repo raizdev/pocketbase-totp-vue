@@ -2,76 +2,68 @@ import { defineStore } from "pinia";
 import { db } from '@/services/pocketbase'
 
 export const useAuthStore = defineStore({
-  id: "auth",
+    id: "auth",
 
-  state: () => ({
-    user: db.authStore.model || ''
-  }),
+    state: () => ({
+        user: db.authStore.model || ''
+    }),
 
-  getters: {},
+    actions: {
+        async initialize () {
+            if(!this.user) return;
 
-  actions: {
-    async initialize () {
-      if(!this.user) return;
+            return await db.collection('users').authRefresh();
+        },
 
-      await db.collection('users').authRefresh();
-    },
+        async getTotpSecretkey () {
+            return await db.send('/auth-generate-totp')
+        },
 
-    async getTotp () {
-      return await db.send('/auth-generate-totp')
-    },
+        async deleteTotpAuth(formData) {
+            return await db.send('/auth-remove-totp', { method: "POST", body: formData });
+        },
 
-    async removeTotp (formData) {
-      const res = await db.send('/auth-remove-totp', { method: "POST", body: formData });
-      this.user.secret_otp = false
-      return res
-    },
+        async activateTotpAuth (formData) {
+            return await db.send('/auth-activate-totp', { method: "POST", body: formData });
+        },
 
-    async setTotp (formData) {
-      const res = await db.send('/auth-activate-totp', { method: "POST", body: formData });
-      this.user.secret_otp = true
-      return res
-    },
+        async login (formData) {
+            const auth = await db.send('/auth-login', { method: "POST", body: formData })
 
-    async login (formData) {
+            /* if twoFactor is enabeld set twoFactor required in user object */
+            if (auth.tfa_required) return this.user = { tfa_required: auth.tfa_required }
 
-      const auth = await db.send('/auth-login-totp', { method: "POST", body: formData })
+            if(auth.token) {
+                /* Save the token and the user record */
+                db.authStore.save(auth.token, auth.record)
 
-      if(auth.status === "authenticator_enabled") {
-        return auth;
-      }
+                /* Set user record */
+                this.user = { ...auth.record }
 
-      db.authStore.save(auth.token, auth.record)
+                return this.router.push({ name: 'home'})
+            }
+        },
 
-      this.$patch({
-        user: auth.record
-      })
+        async register (formData) {
 
-      this.router.push({ name: 'home'})
-    },
+            try {
+                /* Create user */
+                await db.collection('users').create(formData)
 
-    async register (formData) {
+                /* Login user and set auth record */
+                const auth = await db.collection('users').authWithPassword(formData.email, formData.password);
 
-      await db.collection('users').create(formData)
+                this.$patch({ user: auth.record })
 
-      const auth = await db.collection('users').authWithPassword(formData.email, formData.password);
+                return this.router.push({ name: 'home'})
+            } catch(_) {}
 
-      auth.secret_otp = (auth.secret_otp) ? true : false 
+        },
 
-      this.$patch({
-        user: auth.record
-      })
+        logout() {
+            db.authStore.clear();
 
-      this.router.push({ name: 'home'})
-    },
-
-    logout() {
-      db.authStore.clear();
-
-      this.$patch({
-          token: null,
-          user: null,
-      });
-    },
-  },
+            this.$patch({ token: null, user: null })
+        }
+    }
 });
